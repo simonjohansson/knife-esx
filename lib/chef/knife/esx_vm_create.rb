@@ -266,6 +266,11 @@ class Chef
         :description => "Use a batch file to deploy multiple VMs",
         :default => nil
 
+      option :hostname_as_vm_name,
+        :long => "--hostname-as-vm-name",
+        :description => "Use guests hostname as vm name and chef node name",
+        :default => false
+
       def tcp_test_ssh(hostname)
         if config[:ssh_gateway]
           print "\n#{ui.color("Can't test connection through gateway, sleeping 10 seconds... ", :magenta)}"
@@ -339,8 +344,11 @@ class Chef
 
         vm_name = config[:vm_name]
         if not vm_name
-          ui.error("Invalid Virtual Machine name (--vm-name)")
-          exit 1
+          if not config[:hostname_as_vm_name]
+            ui.error("Invalid Virtual Machine name (--vm-name)")
+            exit 1
+          end
+          vm_name = rand(36**10).to_s(36)
         end
 
 
@@ -401,6 +409,12 @@ class Chef
           sleep 1
           found = connection.virtual_machines.find { |v| v.name == vm.name }
         end
+        if config[:hostname_as_vm_name]
+          ui.info "Renaming #{vm_name} to #{vm.host_name}"
+          vm.rename vm.host_name
+          vm.name = vm.host_name
+        end
+
 
         print "\n#{ui.color("Waiting for sshd... ", :magenta)}"
         print(".") until tcp_test_ssh(vm.ip_address) { sleep @initial_sleep_delay ||= 10; puts(" done") }
